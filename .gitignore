@@ -1,0 +1,91 @@
+# General ignores for various project types
+
+# Compiled/Executable files
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+*.out
+*.obj
+*.bin
+
+# Packages/Archives
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+*.7z
+*.iso
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+*.db
+*.mdb
+*.accdb
+*.bak
+*.dump
+
+# OS generated files
+.DS_Store
+.localized
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE and Editor specific files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+.cproject
+.buildpath
+*.user
+*.sublime-project
+*.sublime-workspace
+
+# Build and temporary files
+build/
+dist/
+bin/
+target/
+out/
+tmp/
+temp/
+obj/
+*.pyc
+*.swp
+*~
+*.bak
+*.swo
+*.local
+
+# Python specific (if applicable)
+__pycache__/
+.venv/
+venv/
+ENV/
+env/
+venv3/
+env3/
+.env # Environment variables file
+
+# Node.js specific (if applicable)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Sensitive files and configurations (CRITICAL!)
+# Lütfen projenizin içeriğine göre buraya hassas dosyalarınızı ekleyin:
+# credentials.json
+# api_keys.txt
+# *.pem, *.key, *.crt, *.p12

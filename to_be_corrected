@@ -1,0 +1,283 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+
+
+class ModelingScreen:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Modelleme Ekranı")
+
+        self.SCREEN_WIDTH = 800
+        self.SCREEN_HEIGHT = 600
+        self.BOX_SIZE = 50
+        self.MAX_VALUES = 10
+
+        self.rows = self.SCREEN_HEIGHT // self.BOX_SIZE
+        self.columns = self.SCREEN_WIDTH // self.BOX_SIZE
+        self.row_spacing = [0] * (self.rows - 1)
+        self.col_spacing = [0] * (self.columns - 1)
+
+        self.boxes = []
+        self.values = []
+        self.selected_box = None
+        self.spacing_mode = None
+
+        self.setup_ui()
+
+        self.root.bind('r', lambda e: self.buttons['row'].invoke())
+        self.root.bind('c', lambda e: self.buttons['col'].invoke())
+        self.root.bind('n', lambda e: self.buttons['normal'].invoke())
+        self.root.bind('<Up>', self.add_space)
+        self.root.bind('<Down>', self.remove_space)
+
+    def setup_ui(self):
+        self.main_frame = ttk.Frame(self.root)
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.left_panel = ttk.Frame(self.main_frame, padding="5")
+        self.left_panel.pack(side=tk.LEFT, fill=tk.Y)
+
+        self.create_value_input()
+        self.create_control_buttons()
+
+        self.canvas = tk.Canvas(
+            self.main_frame,
+            width=self.SCREEN_WIDTH,
+            height=self.SCREEN_HEIGHT,
+            bg='black'
+        )
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.canvas.bind('<Button-1>', self.on_canvas_click)
+
+    def create_value_input(self):
+        value_frame = ttk.LabelFrame(self.left_panel, text="Değer Girişi", padding="5")
+        value_frame.pack(fill=tk.X, pady=5)
+
+        count_frame = ttk.Frame(value_frame)
+        count_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(count_frame, text="Maksimum Değer:").pack(side=tk.LEFT)
+        self.max_count_var = tk.StringVar(value=str(self.MAX_VALUES))
+        ttk.Label(count_frame, textvariable=self.max_count_var).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(count_frame, text="-", command=self.decrease_max, width=2).pack(side=tk.LEFT)
+        ttk.Button(count_frame, text="+", command=self.increase_max, width=2).pack(side=tk.LEFT)
+
+        input_frame = ttk.Frame(value_frame)
+        input_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(input_frame, text="Değer:").pack(side=tk.LEFT)
+        self.value_var = tk.StringVar()
+        self.value_entry = ttk.Entry(input_frame, textvariable=self.value_var, width=10)
+        self.value_entry.pack(side=tk.LEFT, padx=5)
+        self.value_entry.bind('<Return>', self.add_value)
+
+        self.value_display = tk.Text(value_frame, height=8, width=20)
+        self.value_display.pack(fill=tk.BOTH, expand=True)
+        self.value_display.config(state='disabled')
+
+    def create_control_buttons(self):
+        control_frame = ttk.LabelFrame(self.left_panel, text="Kontroller", padding="5")
+        control_frame.pack(fill=tk.X, pady=5)
+
+        self.buttons = {}
+
+        button_style = {
+            'bg': '#0066cc',
+            'fg': 'white',
+            'activebackground': '#004c99',
+            'activeforeground': 'white',
+            'relief': 'raised',
+            'borderwidth': 2
+        }
+
+        self.buttons['row'] = tk.Button(
+            control_frame,
+            text="Satır Boşluk (R)",
+            command=lambda: self.set_spacing_mode("row"),
+            **button_style
+        )
+        self.buttons['row'].pack(fill=tk.X, pady=2)
+
+        self.buttons['col'] = tk.Button(
+            control_frame,
+            text="Sütun Boşluk (C)",
+            command=lambda: self.set_spacing_mode("col"),
+            **button_style
+        )
+        self.buttons['col'].pack(fill=tk.X, pady=2)
+
+        self.buttons['normal'] = tk.Button(
+            control_frame,
+            text="Normal Mod (N)",
+            command=lambda: self.set_spacing_mode("normal"),
+            **button_style
+        )
+        self.buttons['normal'].pack(fill=tk.X, pady=2)
+
+        self.info_label = ttk.Label(control_frame, text="Normal mod aktif", wraplength=200)
+        self.info_label.pack(fill=tk.X, pady=5)
+
+    def add_value(self, event=None):
+        try:
+            value = int(self.value_var.get())
+            if len(self.values) < int(self.max_count_var.get()):
+                self.values.append(value)
+                self.update_value_display()
+                self.value_var.set("")
+            else:
+                messagebox.showwarning("Uyarı", f"Maksimum {self.max_count_var.get()} değer girilebilir!")
+        except ValueError:
+            messagebox.showerror("Hata", "Lütfen geçerli bir sayı giriniz!")
+
+    def update_value_display(self):
+
+        self.value_display.config(state='normal')
+        self.value_display.delete(1.0, tk.END)
+        for i, value in enumerate(self.values, 1):
+            self.value_display.insert(tk.END, f"{i}. Değer: {value}\n")
+        self.value_display.config(state='disabled')
+
+    def increase_max(self):
+        current = int(self.max_count_var.get())
+        self.max_count_var.set(str(current + 1))
+
+    def decrease_max(self):
+        current = int(self.max_count_var.get())
+        if current > 1:
+            if current <= len(self.boxes):
+                if messagebox.askyesno("Uyarı", "Bazı kutular silinecek. Devam etmek istiyor musunuz?"):
+                    self.boxes = self.boxes[:current - 1]
+                    self.values = self.values[:current - 1]
+                    self.max_count_var.set(str(current - 1))
+                    self.update_value_display()
+                    self.redraw()
+            else:
+                self.max_count_var.set(str(current - 1))
+
+    def set_spacing_mode(self, mode):
+        normal_color = '#0066cc'
+        pressed_color = '#004c99'
+
+        for btn in self.buttons.values():
+            btn.config(bg=normal_color)
+
+        self.spacing_mode = mode
+        if mode == "normal":
+            self.buttons['normal'].config(bg=pressed_color)
+            self.info_label.config(text="Normal mod aktif")
+            self.canvas.config(cursor="arrow")
+            self.selected_box = None
+        else:
+            self.buttons[mode].config(bg=pressed_color)
+            mode_text = "Satır" if mode == "row" else "Sütun"
+            self.info_label.config(text=f"{mode_text} boşluk modu aktif\nKutu seçmek için tıklayın")
+            self.canvas.config(cursor="cross")
+        self.redraw()
+
+    def on_canvas_click(self, event):
+        if self.spacing_mode in ["row", "col"]:
+            self.handle_spacing_click(event)
+        else:
+            self.handle_box_placement(event)
+
+    def handle_spacing_click(self, event):
+        x = event.x
+        y = event.y
+
+        min_distance = float('inf')
+        closest_box = None
+
+        for box in self.boxes:
+            if self.spacing_mode == "row":
+                distance = abs(y - (box[1] + self.BOX_SIZE / 2))
+            else:
+                distance = abs(x - (box[0] + self.BOX_SIZE / 2))
+
+            if distance < min_distance:
+                min_distance = distance
+                closest_box = box
+
+        if closest_box:
+            self.selected_box = closest_box
+            self.info_label.config(text="Kutu seçildi\nYukarı/Aşağı ok tuşları ile boşluk ayarlayın")
+            self.redraw()
+
+    def handle_box_placement(self, event):
+        if not self.values or len(self.boxes) >= len(self.values):
+            messagebox.showwarning("Uyarı", "Daha fazla kutu eklenemez!")
+            return
+
+        x = (event.x // self.BOX_SIZE) * self.BOX_SIZE
+        y = (event.y // self.BOX_SIZE) * self.BOX_SIZE
+
+        for box in self.boxes:
+            if box[0] == x and box[1] == y:
+                return
+
+        value = self.values[len(self.boxes)]
+        self.boxes.append((x, y, value))
+        self.redraw()
+
+    def add_space(self, event=None):
+        if self.selected_box and self.spacing_mode in ["row", "col"]:
+            if self.spacing_mode == "row":
+                index = self.selected_box[1] // self.BOX_SIZE
+                if index < len(self.row_spacing):
+                    self.row_spacing[index] += 10
+            else:
+                index = self.selected_box[0] // self.BOX_SIZE
+                if index < len(self.col_spacing):
+                    self.col_spacing[index] += 10
+            self.redraw()
+
+    def remove_space(self, event=None):
+        if self.selected_box and self.spacing_mode in ["row", "col"]:
+            if self.spacing_mode == "row":
+                index = self.selected_box[1] // self.BOX_SIZE
+                if index < len(self.row_spacing) and self.row_spacing[index] > 0:
+                    self.row_spacing[index] = max(0, self.row_spacing[index] - 10)
+            else:
+                index = self.selected_box[0] // self.BOX_SIZE
+                if index < len(self.col_spacing) and self.col_spacing[index] > 0:
+                    self.col_spacing[index] = max(0, self.col_spacing[index] - 10)
+            self.redraw()
+
+    def redraw(self):
+        self.canvas.delete("all")
+
+        for x, y, value in self.boxes:
+            adjusted_x = x + sum(self.col_spacing[:x // self.BOX_SIZE])
+            adjusted_y = y + sum(self.row_spacing[:y // self.BOX_SIZE])
+
+            color = "green" if value % 2 else "red"
+
+            outline_color = "yellow" if (x, y, value) == self.selected_box else "white"
+            outline_width = 2 if (x, y, value) == self.selected_box else 1
+
+            self.canvas.create_rectangle(
+                adjusted_x,
+                adjusted_y,
+                adjusted_x + self.BOX_SIZE,
+                adjusted_y + self.BOX_SIZE,
+                fill=color,
+                outline=outline_color,
+                width=outline_width
+            )
+
+            self.canvas.create_text(
+                adjusted_x + self.BOX_SIZE // 2,
+                adjusted_y + self.BOX_SIZE // 2,
+                text=str(value),
+                fill="white"
+            )
+
+
+def main():
+    root = tk.Tk()
+    app = ModelingScreen(root)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()

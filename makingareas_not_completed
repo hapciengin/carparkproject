@@ -1,0 +1,219 @@
+import sys
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QLabel, QFileDialog, 
+                            QVBoxLayout, QWidget, QMessageBox)
+from PyQt6.QtGui import QPixmap, QPainter, QColor, QPen
+from PyQt6.QtCore import Qt, QPoint
+import random
+import math
+
+class QuadrilateralApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setupUI()
+        
+    def setupUI(self):
+        self.setWindowTitle('Dışbükey Dörtgen Çizim Uygulaması')
+        self.setGeometry(100, 100, 800, 600)
+        
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        self.layout = QVBoxLayout(self.central_widget)
+        
+        self.drawing_area = DrawingArea(self)
+        self.layout.addWidget(self.drawing_area)
+        
+        self.openImageDialog()
+        
+    def openImageDialog(self):
+        file_name, _ = QFileDialog.getOpenFileName(self, "Görsel Seç", "", 
+                                                 "Görsel (*.png *.jpg *.jpeg *.bmp *.gif)")
+        if file_name:
+            pixmap = QPixmap(file_name)
+            self.drawing_area.setPixmap(pixmap)
+            self.drawing_area.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.resize(pixmap.width(), pixmap.height())
+
+class Quadrilateral:
+    def __init__(self):
+        self.input_points = []
+        self.points = []
+        self.colors = []
+        self.edges = []
+        self.is_complete = False
+
+    def calculate_centroid(self):
+        """Noktaların ağırlık merkezini hesapla"""
+        if not self.input_points:
+            return QPoint(0, 0)
+        x_sum = sum(p.x() for p in self.input_points)
+        y_sum = sum(p.y() for p in self.input_points)
+        count = len(self.input_points)
+        return QPoint(x_sum // count, y_sum // count)
+
+    def calculate_angle(self, center, point):
+        """Merkeze göre noktanın açısını hesapla"""
+        return math.atan2(point.y() - center.y(), point.x() - center.x())
+
+    def sort_points_convex(self):
+        """Noktaları dışbükey sıralama"""
+        if len(self.input_points) < 3:
+            self.points = self.input_points.copy()
+            return
+
+        center = self.calculate_centroid()
+        
+        angle_points = [(self.calculate_angle(center, p), p) for p in self.input_points]
+        angle_points.sort(key=lambda x: x[0])
+        
+        self.points = [p for _, p in angle_points]
+
+    def add_point(self, point, color):
+        if len(self.input_points) < 4:
+            self.input_points.append(point)
+            self.colors.append(color)
+            self.sort_points_convex()
+            self.update_edges()
+            self.is_complete = len(self.input_points) == 4
+            return True
+        return False
+
+    def remove_point(self, point_index):
+        if 0 <= point_index < len(self.input_points):
+            original_point = self.input_points[point_index]
+            self.input_points.pop(point_index)
+            self.colors.pop(point_index)
+            
+            for i, point in enumerate(self.points):
+                if point == original_point:
+                    self.points.pop(i)
+                    break
+                    
+            self.sort_points_convex()
+            self.update_edges()
+            self.is_complete = False
+            return True
+        return False
+
+    def update_edges(self):
+        """Dörtgen kenarlarını güncelle"""
+        self.edges = []
+        n_points = len(self.points)
+        
+        if n_points < 2:
+            return
+            
+        for i in range(n_points):
+            if i == n_points - 1 and n_points == 4:
+                self.edges.append((i, 0))
+            elif i < n_points - 1:
+                self.edges.append((i, i + 1))
+
+    def contains_point(self, test_point, threshold=20):
+        """Test noktasının herhangi bir noktaya yakın olup olmadığını kontrol et"""
+        for point in self.input_points:
+            if (test_point - point).manhattanLength() < threshold:
+                return True
+        return False
+
+    def get_point_index(self, test_point, threshold=20):
+        """Test noktasına en yakın noktanın indeksini bul"""
+        for i, point in enumerate(self.input_points):
+            if (test_point - point).manhattanLength() < threshold:
+                return i
+        return -1
+
+class DrawingArea(QLabel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.quadrilaterals = [Quadrilateral()]
+        self.current_quad_index = 0
+        self.last_deleted_quad_index = -1
+        self.last_action_was_delete = False
+        self.setMouseTracking(True)
+        
+    def randomColor(self):
+        return QColor(random.randint(0, 255), 
+                     random.randint(0, 255),
+                     random.randint(0, 255))
+    
+    def get_current_quadrilateral(self):
+        return self.quadrilaterals[self.current_quad_index]
+    
+    def start_new_quadrilateral(self):
+        self.quadrilaterals.append(Quadrilateral())
+        self.current_quad_index = len(self.quadrilaterals) - 1
+    
+    def mousePressEvent(self, event):
+        if not self.pixmap():
+            return
+            
+        if event.button() == Qt.MouseButton.LeftButton:
+            if self.last_action_was_delete:
+                quad = self.quadrilaterals[self.last_deleted_quad_index]
+                self.current_quad_index = self.last_deleted_quad_index
+                self.last_action_was_delete = False
+            else:
+                quad = self.get_current_quadrilateral()
+                
+                if quad.is_complete:
+                    self.start_new_quadrilateral()
+                    quad = self.get_current_quadrilateral()
+            
+            point = event.pos()
+            
+            for q in self.quadrilaterals:
+                if q.contains_point(point):
+                    QMessageBox.warning(self, "Hata", 
+                                      "Noktalar birbirine çok yakın!")
+                    return
+            
+            quad.add_point(point, self.randomColor())
+            self.update()
+            
+        elif event.button() == Qt.MouseButton.RightButton:
+            if self.last_action_was_delete:
+                QMessageBox.warning(self, "HATA", 
+                                  "Önce yeni nokta eklenmeli!")
+                return
+            
+            point = event.pos()
+            for i, quad in enumerate(self.quadrilaterals):
+                point_index = quad.get_point_index(point)
+                if point_index != -1:
+                    quad.remove_point(point_index)
+                    self.last_deleted_quad_index = i
+                    self.last_action_was_delete = True
+                    self.update()
+                    break
+    
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        
+        if not self.pixmap():
+            return
+            
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        for quad in self.quadrilaterals:
+            for i, point in enumerate(quad.points):
+                painter.setPen(QPen(quad.colors[i], 2))
+                painter.drawEllipse(point, 5, 5)
+            
+            for i, (start, end) in enumerate(quad.edges):
+                painter.setPen(QPen(quad.colors[i], 2))
+                painter.drawLine(quad.points[start], quad.points[end])
+        
+        current_quad = self.get_current_quadrilateral()
+        if not current_quad.is_complete and len(current_quad.points) > 0:
+            painter.drawText(10, 20, 
+                           f"Dörtgen tamamlanmadı: {len(current_quad.points)}/4 nokta")
+
+def main():
+    app = QApplication(sys.argv)
+    window = QuadrilateralApp()
+    window.show()
+    sys.exit(app.exec())
+
+if __name__ == '__main__':
+    main()
